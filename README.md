@@ -1,3 +1,47 @@
+# S0 fork
+
+Public fork of <https://github.com/longbridge/gpui-kit> carrying one S0 patch on the
+`gpui-base` crate. Everything else in this tree is upstream code; S0 keeps no private
+code here.
+
+- Upstream: <https://github.com/longbridge/gpui-kit>
+- Base: tag `v0.8.0`, commit [`1676826d9d49b90f4d7b6808b69924f58796f6f1`](https://github.com/longbridge/gpui-kit/commit/1676826d9d49b90f4d7b6808b69924f58796f6f1)
+- Branch: `s0/fix/spring-fast-path-target`
+- License: Apache-2.0, unchanged (`LICENSE-APACHE`)
+
+## Patch
+
+`crates/base/src/motion.rs`, `spring` resting fast path: when the spring already sits on
+the requested target, adopt that target in the saved state before returning. Without it,
+a target that arrives through the fast path leaves `state.target` at the value the spring
+was travelling toward, and the next retarget integrates from that stale target over the
+whole rest — one frame that jumps the full distance instead of starting from rest
+(TianHe-Labs/s0#718). The write is conditional so a settled spring still writes nothing
+and does not notify the observing view every frame.
+
+```diff
+     if at_rest_on_target {
++        if snapshot.target != target_position {
++            state.update(cx, |state, _| {
++                state.target = target_position;
++                state.updated_at = now;
++            });
++        }
+         return target.resolve(target_position);
+     }
+```
+
+## Upgrading
+
+1. When upstream releases a version whose `spring` fast path already adopts the target,
+   drop this fork and go back to crates.io.
+2. Otherwise rebase this branch onto the new upstream tag, re-apply the patch above, and
+   pin S0's `[patch.crates-io] gpui-base` entry to the new commit.
+3. Verify in S0 with `cargo tree -i gpui-base` (one source only) and
+   `cargo test -p s0-ui --features test-support spring_target_tests`.
+
+---
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/longbridge/gpui-kit/main/website/public/logo.svg" width="112" alt="GPUI Kit logo" />
   <br>

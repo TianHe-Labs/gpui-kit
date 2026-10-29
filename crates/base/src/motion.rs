@@ -612,7 +612,21 @@ where
     // over that whole gap, which any elapsed time leaves where it is, so the
     // stale clock cannot move the value — it only has to not produce a NaN, and
     // every term the propagator scales is finite.
+    //
+    // That holds only while the saved target is the resting position itself. A
+    // retarget that reaches this position through the fast path leaves the
+    // target it was travelling toward saved, and the next retarget then steps
+    // from that stale target over the whole rest instead of from here — one
+    // frame that lands where the stale target was. Adopt the target before
+    // returning whenever it moved; writing on every resting call instead would
+    // notify the observing view and repaint forever.
     if at_rest_on_target {
+        if snapshot.target != target_position {
+            state.update(cx, |state, _| {
+                state.target = target_position;
+                state.updated_at = now;
+            });
+        }
         return target.resolve(target_position);
     }
 
